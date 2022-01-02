@@ -38,13 +38,17 @@ int password_correct(char *pswdFile, char *pswd){
 
         strcpy(username, strtok(in, ":"));
         strcpy(passwd, strtok(NULL, "\n"));
-        if(strcmp(pswd, passwd)){
-            //puts("Password found");
+
+        if(strcmp(pswd, passwd) == 0){
+            puts("Passwd found");
             ispswdFound = 1;
             break;
         }
     }
-
+    if(ispswdFound == 0){
+        puts("Wrong password!\nApp will close shortly");
+        exit(1);
+    }
     return ispswdFound;
 }
 
