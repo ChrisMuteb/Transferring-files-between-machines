@@ -1,11 +1,54 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 void error_message();
+int password_correct(char *pswdFile, char *pswd);
+void init(int argc, char *argv[]);
 
 int main(int argc, char *argv[]){
 
+    init(argc, argv);
+    
+
+    exit(EXIT_SUCCESS);
+}
+void error_message(){
+    printf("Required: -d <directory> | -p <port number> | -u <password>\n");
+    exit(2);
+}
+int password_correct(char *pswdFile, char *pswd){
+
+    FILE *spin;
+    int numIn;
+    char in[20];
+    char username[20], passwd[20];
+    int ispswdFound = 0;
+    
+    spin = fopen(pswdFile, "r");
+    if(!spin){
+        printf("Could not open file\n");
+        exit(1);
+    }
+    
+
+    //printf("%d\n", strlen())
+    while(fgets(in, 20, spin)){
+
+        strcpy(username, strtok(in, ":"));
+        strcpy(passwd, strtok(NULL, "\n"));
+        if(strcmp(pswd, passwd)){
+            //puts("Password found");
+            ispswdFound = 1;
+            break;
+        }
+    }
+
+    return ispswdFound;
+}
+
+void init(int argc, char *argv[]){
     if(argc < 6){//ensures that the number of arguments is not less than 4
         error_message();
     }
@@ -34,12 +77,12 @@ int main(int argc, char *argv[]){
         
     }
     printf("running dir: %s\n", directory);
-    printf("running dir: %s\n", port_num);
-    printf("running dir: %s\n", password);
-    
-    exit(EXIT_SUCCESS);
-}
-void error_message(){
-    printf("Required: -d <directory> | -p <port number> | -u <password>\n");
-    exit(2);
+
+    printf("port num: %s\n", port_num);
+    printf("password: %s\n", password);
+
+    puts("");
+    if(password_correct("password.txt", password)){
+        puts("password found!");
+    }
 }
