@@ -38,8 +38,10 @@ void* Child(void* arg);
 void error_message();
 int password_correct(char *pswdFile, char *pswd);
 void init(int argc, char *argv[], int *port_num);
+int authenticateUSER(char *pswdFile, char u[20], char p[20]);
 
 char u_name[20];//stores the username
+char passwordFile[20] = "password.txt";
 
 int main(int argc, char *argv[]){
 
@@ -158,7 +160,7 @@ void init(int argc, char *argv[], int *port_num){
             error_message();
             break;
         }
-        
+    
     }
     //printf("running dir: %s\n", directory);
 
@@ -174,6 +176,35 @@ void init(int argc, char *argv[], int *port_num){
 }
 
 
+int authenticateUSER(char *pswdFile, char u[20], char p[20]){
+    FILE *spin;
+    int numIn;
+    char in[20];
+    char username[20], passwd[20];
+    int ispswdFound = 0;
+    
+    spin = fopen(pswdFile, "r");
+    if(!spin){
+        printf("Could not open file\n");
+        exit(1);
+    }
+    
+
+    //printf("%d\n", strlen())
+    while(fgets(in, 20, spin)){
+
+        strcpy(username, strtok(in, ":"));
+        strcpy(passwd, strtok(NULL, "\n"));
+
+        if((strcmp(p, passwd) == 0) && (strcmp(u, username) == 0)){
+            //puts("Passwd found");
+            //strcpy(u_name, username);
+            ispswdFound = 1;
+            break;
+        }
+    }
+    return ispswdFound;
+}
 /*--------------------------------------------------------------------*/
 /*--- Child - echo server                                         ---*/
 /*--------------------------------------------------------------------*/
@@ -196,11 +227,55 @@ void* Child(void* arg)
    }
    puts("\n");
     //--------------------------
+    //strcpy(username, strtok(in, ":"));
+    //strcpy(passwd, strtok(NULL, "\n"));
+    char cmd_USER[20] = {0}, cmd_uname[20] = {0}, cmd_pswd[20] = {0};
     do
     {
         bytes_read = recv(client, line, sizeof(line), 0);
         if (bytes_read > 0) {
-                if ( (bytes_read=send(client, line, bytes_read, 0)) < 0 ) {
+            
+            strcpy(cmd_USER, strtok(line, " "));
+            strcpy(cmd_uname, strtok(NULL, " "));
+            strcpy(cmd_pswd, strtok(NULL, "\n"));
+           
+            if(strcmp(cmd_USER, "USER") == 0){
+                printf("%s\n", cmd_uname);
+                //call function that search through the password txt
+                puts("");
+                if(authenticateUSER(passwordFile, cmd_uname, cmd_pswd) == 1){
+                    char str_USER[40] = {0};
+                    strcpy(str_USER, "\n200 User ");
+                    strcat(str_USER, cmd_uname);
+                    strcat(str_USER, " granted to access.\n");
+                    //printf("%s\n", cmd_USER);
+                    //send(client, str, bytes_read, 0);
+                    if(bytes_r <= 0)
+                    bytes_r = 35;
+    
+                    while(bytes_r > 0){
+                        send(client, str_USER, bytes_r, 0);
+                        break;
+                    }
+                    puts("\n");
+                }else{
+                    char str_USER[70] = {0};
+                    strcpy(str_USER, "\n400 User ");
+                    strcat(str_USER, cmd_uname);
+                    strcat(str_USER, " not found. Please try with another user\n");
+                    //printf("%s\n", cmd_USER);
+                    //send(client, str, bytes_read, 0);
+                    //if(bytes_r <= 0)
+                    bytes_r = 70;
+    
+                    while(bytes_r > 0){
+                        send(client, str_USER, bytes_r, 0);
+                        break;
+                    }
+                    puts("\n");
+                }
+            }
+                if ((bytes_read=send(client, line, bytes_read, 0)) < 0 ) {
                         printf("Send failed\n");
                         break;
                 }
