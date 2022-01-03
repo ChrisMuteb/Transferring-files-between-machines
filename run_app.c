@@ -39,6 +39,8 @@ void error_message();
 int password_correct(char *pswdFile, char *pswd);
 void init(int argc, char *argv[], int *port_num);
 
+char u_name[20];//stores the username
+
 int main(int argc, char *argv[]){
 
     int sd,opt,optval;
@@ -48,7 +50,8 @@ int main(int argc, char *argv[]){
 
 
     init(argc, argv, &p_num);//get the 3 arguments and return the port number
-
+    //printf("I am out");
+    //printf("username: %s\n", u_name);
 
     if ( (sd = socket(PF_INET, SOCK_STREAM, 0)) < 0 )
         PANIC("Socket");
@@ -71,7 +74,7 @@ int main(int argc, char *argv[]){
     if ( listen(sd, SOMAXCONN) != 0 )
         PANIC("Listen");
 
-    printf("System ready on port %d\n",ntohs(addr.sin_port));
+    printf("File server listening on localhost port %d\n",ntohs(addr.sin_port));
 
     while (1)
     {
@@ -116,7 +119,8 @@ int password_correct(char *pswdFile, char *pswd){
         strcpy(passwd, strtok(NULL, "\n"));
 
         if(strcmp(pswd, passwd) == 0){
-            puts("Passwd found");
+            //puts("Passwd found");
+            strcpy(u_name, username);
             ispswdFound = 1;
             break;
         }
@@ -156,15 +160,17 @@ void init(int argc, char *argv[], int *port_num){
         }
         
     }
-    printf("running dir: %s\n", directory);
+    //printf("running dir: %s\n", directory);
 
-    printf("Port num: %d\n", *port_num);
-    printf("Password: %s\n", password);
+    //printf("Port num: %d\n", *port_num);
+    //printf("Password: %s\n", password);
 
     puts("");
     if(password_correct("password.txt", password)){
-        puts("password found!");
+        //puts("Your password is correct!");
+        puts("");
     }
+
 }
 
 
@@ -175,7 +181,21 @@ void* Child(void* arg)
 {   char line[DEFAULT_BUFLEN];
     int bytes_read;
     int client = *(int *)arg;
-
+    //-----------Welcoming message sent to user-------------
+    char str[35] = {0};
+    int bytes_r = 0;
+    strcat(str, "Welcome to ");
+    strcat(str, u_name);
+    strcat(str, "\'s file server. \n");
+    if(bytes_r <= 0)
+        bytes_r = 35;
+    
+   while(bytes_r > 0){
+       send(client, str, bytes_r, 0);
+       break;
+   }
+   puts("\n");
+    //--------------------------
     do
     {
         bytes_read = recv(client, line, sizeof(line), 0);
