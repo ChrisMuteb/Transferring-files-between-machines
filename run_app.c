@@ -38,22 +38,26 @@ void* Child(void* arg);
 //----------------------------------------------
 void error_message();
 int password_correct(char *pswdFile, char *pswd);
-void init(int argc, char *argv[], int *port_num);
+void init(int argc, char *argv[]);
 int authenticateUSER(char *pswdFile, char u[20], char p[20]);
 void listDirectories();
 
 char u_name[20];//stores the username
-char passwordFile[20] = "password.txt";//file containing password
+
+int client, port_num;
+char p_file[20], d_file[20];
+char passwordFile[20] = "password.txt";
 
 int main(int argc, char *argv[]){
 
     int sd,opt,optval;
     struct sockaddr_in addr;
-    //unsigned short port=0;
-    int p_num = 0;//port num from the cmd argument
 
 
-    init(argc, argv, &p_num);//get the 3 arguments and return the port number
+    init(argc, argv);//get the 3 arguments and return the port number
+    printf("running dir: %s\n", d_file);
+    printf("Port num: %d\n", port_num);
+    printf("Password: %s\n", p_file);
     //printf("I am out");
     //printf("username: %s\n", u_name);
 
@@ -61,8 +65,8 @@ int main(int argc, char *argv[]){
         PANIC("Socket");
     addr.sin_family = AF_INET;
 
-    if ( p_num > 0 )
-                addr.sin_port = htons(p_num);
+    if ( port_num > 0 )
+                addr.sin_port = htons(port_num);
     else
                 addr.sin_port = htons(PORT);
 
@@ -90,7 +94,7 @@ int main(int argc, char *argv[]){
         if ( pthread_create(&child, NULL, Child, &client) != 0 )
             perror("Thread creation");
         else
-            pthread_detach(child);  /* disassociate from parent */
+            pthread_detach(child);
     }
 
     
@@ -136,13 +140,13 @@ int password_correct(char *pswdFile, char *pswd){
     return ispswdFound;
 }
 
-void init(int argc, char *argv[], int *port_num){
-    if(argc < 6){//ensures that the number of arguments is not less than 4
+void init(int argc, char *argv[]){
+
+    if(argc < 6){
         error_message();
     }
     
     int optionInput;//Getopt var. holder
-    char *directory, *password;
     
     
     while((optionInput = getopt(argc, argv, "d:p:u:")) != -1){//prompt the user for the input and output file
@@ -150,31 +154,19 @@ void init(int argc, char *argv[], int *port_num){
         switch (optionInput)
         {
         case 'd':
-            directory = optarg;
+            strcpy(d_file, optarg);
             break;
         case 'p':
-            *port_num = atoi(optarg);
+            port_num = atoi(optarg);
             break;
         case 'u':
-            password = optarg;
+            strcpy(p_file, optarg);
             break;
         default:
             error_message();
             break;
         }
-    
     }
-    //printf("running dir: %s\n", directory);
-
-    //printf("Port num: %d\n", *port_num);
-    //printf("Password: %s\n", password);
-
-    puts("");
-    if(password_correct("password.txt", password)){
-        //puts("Your password is correct!");
-        puts("");
-    }
-
 }
 
 void listDirectories(){
@@ -182,11 +174,27 @@ void listDirectories(){
     DIR *d;
     struct dirent *dir;
     d = opendir(".");
+    int bytes_r = 0;
+    char str[40] = {0};
+
     if (d)
     {
         while ((dir = readdir(d)) != NULL)
         {
-            printf("%s\n", dir->d_name);
+            printf("%s %ld\n", dir->d_name, strlen(dir->d_name));
+            //----------------
+            strcpy(str, dir->d_name);
+            strcat(str, " ");
+            strcat(str, (char *)strlen(dir->d_name));
+            if(bytes_r <= 0)
+            bytes_r = 40;
+
+            while(bytes_r > 0){
+                send(client, str, bytes_r, 0);
+                break;
+            }
+            puts("\n");
+            
         }
 
         closedir(d);
@@ -228,30 +236,22 @@ int authenticateUSER(char *pswdFile, char u[20], char p[20]){
 /*--- Child - echo server                                         ---*/
 /*--------------------------------------------------------------------*/
 void* Child(void* arg)
-{   char line[DEFAULT_BUFLEN];
+{   
+    char line[DEFAULT_BUFLEN] = {0};
     int bytes_read;
-    int client = *(int *)arg;
+    client = *(int *)arg;
+    char cmd_USER[20] = {0}, cmd_uname[20] = {0}, cmd_pswd[20] = {0}, cmd_LIST[5] = {0};
+    char str_USER[70] = {0};
     //-----------Welcoming message sent to user-------------
     char str[35] = {0};
-    int bytes_r = 0;
-    strcat(str, "Welcome to ");
-    strcat(str, u_name);
-    strcat(str, "\'s file server. \n");
-    if(bytes_r <= 0)
-        bytes_r = 35;
-    
-   while(bytes_r > 0){
-       send(client, str, bytes_r, 0);
-       break;
-   }
-   puts("\n");
+    int bytes_r = 35;
+    strcat(str, "Welcome to Chris\'s file server\n");
+    send(client, str, bytes_r, 0);
     //--------------------------
-    //strcpy(username, strtok(in, ":"));
-    //strcpy(passwd, strtok(NULL, "\n"));
-    char cmd_USER[20] = {0}, cmd_uname[20] = {0}, cmd_pswd[20] = {0};
+    
     do
     {
-        bytes_read = recv(client, line, sizeof(line), 0);
+        bytes_read = recv(client, line, sizeof(line), 0);//Reads USER username userpassword
         if (bytes_read > 0) {
             
             strcpy(cmd_USER, strtok(line, " "));
@@ -261,14 +261,13 @@ void* Child(void* arg)
             if(strcmp(cmd_USER, "USER") == 0){
                 printf("%s\n", cmd_uname);
                 //call function that search through the password txt
-                puts("");
-                if(authenticateUSER(passwordFile, cmd_uname, cmd_pswd) == 1){
+                if(authenticateUSER(p_file, cmd_uname, cmd_pswd) == 1){
+
                     char str_USER[40] = {0};
                     strcpy(str_USER, "\n200 User ");
                     strcat(str_USER, cmd_uname);
                     strcat(str_USER, " granted to access.\n");
-                    //printf("%s\n", cmd_USER);
-                    //send(client, str, bytes_read, 0);
+
                     if(bytes_r <= 0)
                     bytes_r = 35;
     
@@ -276,26 +275,22 @@ void* Child(void* arg)
                         send(client, str_USER, bytes_r, 0);
                         break;
                     }
-                    puts("\n");
-                    //check for listing files
+                    
                 }else{
-                    char str_USER[70] = {0};
+                    
                     strcpy(str_USER, "\n400 User ");
                     strcat(str_USER, cmd_uname);
                     strcat(str_USER, " not found. Please try with another user\n");
-                    //printf("%s\n", cmd_USER);
-                    //send(client, str, bytes_read, 0);
-                    //if(bytes_r <= 0)
+                   
                     bytes_r = 70;
     
                     while(bytes_r > 0){
                         send(client, str_USER, bytes_r, 0);
                         break;
                     }
-                    puts("\n");
                 }
             }
-                if ((bytes_read=send(client, line, bytes_read, 0)) < 0 ) {
+                if ((bytes_r=send(client, str_USER, bytes_r, 0)) < 0 ) {
                         printf("Send failed\n");
                         break;
                 }
@@ -305,6 +300,16 @@ void* Child(void* arg)
         } else {
                 printf("Connection has problem\n");
                 break;
+        }
+        
+        //-----------------
+        bytes_read = recv(client, cmd_LIST, 5, 0);
+        strcpy(cmd_LIST, strtok(cmd_LIST, " "));
+        printf("nOW: %s-%ld\n", cmd_LIST, strlen(cmd_LIST));
+        int i = strcmp(cmd_LIST, "LIST");
+        printf("list function called %d\n", i);
+        if(strcmp(line, cmd_LIST)){
+            //puts("list function called");
         }
     } while (bytes_read > 0);
     close(client);
