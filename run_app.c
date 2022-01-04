@@ -25,6 +25,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <dirent.h>
 
 /*Definition*/
 #define DEFAULT_BUFLEN 1024
@@ -39,9 +40,10 @@ void error_message();
 int password_correct(char *pswdFile, char *pswd);
 void init(int argc, char *argv[], int *port_num);
 int authenticateUSER(char *pswdFile, char u[20], char p[20]);
+void listDirectories();
 
 char u_name[20];//stores the username
-char passwordFile[20] = "password.txt";
+char passwordFile[20] = "password.txt";//file containing password
 
 int main(int argc, char *argv[]){
 
@@ -175,6 +177,23 @@ void init(int argc, char *argv[], int *port_num){
 
 }
 
+void listDirectories(){
+    
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(".");
+    if (d)
+    {
+        while ((dir = readdir(d)) != NULL)
+        {
+            printf("%s\n", dir->d_name);
+        }
+
+        closedir(d);
+    }
+
+  
+}
 
 int authenticateUSER(char *pswdFile, char u[20], char p[20]){
     FILE *spin;
@@ -258,6 +277,7 @@ void* Child(void* arg)
                         break;
                     }
                     puts("\n");
+                    //check for listing files
                 }else{
                     char str_USER[70] = {0};
                     strcpy(str_USER, "\n400 User ");
