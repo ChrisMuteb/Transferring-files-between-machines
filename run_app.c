@@ -41,6 +41,7 @@ int password_correct(char *pswdFile, char *pswd);
 void init(int argc, char *argv[]);
 int authenticateUSER(char *pswdFile, char u[20], char p[20]);
 void listDirectories();
+void deleteFile(char *delF);
 void trimRecvbuf(char *s);
 
 char u_name[20];//stores the username
@@ -247,10 +248,16 @@ void* Child(void* arg)
     int bytes_r = 35;
     strcat(str, "Welcome to Chris\'s file server\n");
     send(client, str, bytes_r, 0);
-    //--------------------------
+    //-----------LIST---------------
     int rcnt = 0;
-    char recvbuf[DEFAULT_BUFLEN]; 
+    char recvbuf[DEFAULT_BUFLEN] = {0}; 
     int recvbuflen = DEFAULT_BUFLEN;
+    //-----------DEL---------------
+    int rcnt_DEL = 0;
+    char recvbuf_DEL[DEFAULT_BUFLEN] = {0}; 
+    int recvbuflen_DEL = DEFAULT_BUFLEN;
+    char del[recvbuflen];
+    char delStr[recvbuflen];
     
     do
     {
@@ -306,24 +313,16 @@ void* Child(void* arg)
                 break;
         }
         
-        //-----------------
-        /*bytes_read = recv(client, cmd_LIST, 5, 0);
-        strcpy(cmd_LIST, strtok(cmd_LIST, " "));
-        printf("nOW: %s-%ld\n", cmd_LIST, strlen(cmd_LIST));
-        int i = strcmp(cmd_LIST, "LIST");
-        printf("list function called %d\n", i);
-        if(strcmp(line, cmd_LIST)){
-            puts("list function called");
-        }*/
-
+        
         //-------------------------
-        if(is_authen){
-            rcnt = recv(client, recvbuf, recvbuflen, 0);
+        rcnt = recv(client, recvbuf, recvbuflen, 0);
+        printf("Is authen %d\n", is_authen);
+        if(is_authen == 1 && recvbuf[0] == 'L'){
+            
             char lst[recvbuflen];
             strcpy(lst,"LIST");
             trimRecvbuf(recvbuf);
-            //printf("\n%ld-%ld=>%c*%c\n", strlen(lst), strlen(recvbuf), recvbuf[4], recvbuf[5]);
-            //trim the str from client
+            
             int iseq = 0;
             for(int i = 0; i < 4; i++){
                 if(recvbuf[i] == lst[i])
@@ -336,7 +335,8 @@ void* Child(void* arg)
                 listDirectories();
                 printf("Bytes received: %d\n", rcnt);
             // Echo the buffer back to the sender
-                rcnt = send( client, recvbuf, rcnt, 0 );
+            strcat(recvbuf, "\n");
+            rcnt = send( client, recvbuf, rcnt, 0 );
             if (rcnt < 0) {
                 printf("Send failed:\n");
                 close(client);
@@ -347,8 +347,47 @@ void* Child(void* arg)
         }
         }
         
-        
+        rcnt_DEL = recv(client, recvbuf_DEL, recvbuflen_DEL, 0);
+        //printf("Where in the program am I: %s - %d\n", recvbuf_DEL, is_authen);
+        if(is_authen == 1 && recvbuf_DEL[0] == 'D'){
+            printf("Let's delete some files");
+                
+            
+            //strcpy(lst,"LIST");
+            strcpy(del, strtok(recvbuf_DEL, " "));
+            strcpy(delStr, strtok(NULL, " "));
+            printf("\n%s%s", del, delStr);
+            trimRecvbuf(recvbuf);
+            
+            int iseq = 0;
+            if(strcmp(del, "DEL") == 0){
 
+                printf("We are now ready to delete\n");
+                deleteFile(delStr);
+
+            }
+            /*for(int i = 0; i < 4; i++){
+                if(recvbuf[i] == lst[i])
+                    iseq = 1;
+                else 
+                    iseq = 0;
+            }*/
+           //printf("\n%d\n", iseq);
+            if (rcnt > 0 && (iseq == 1)) {//user entered LIST
+                listDirectories();
+                printf("Bytes received: %d\n", rcnt);
+            // Echo the buffer back to the sender
+            strcat(recvbuf, "\n");
+            rcnt = send( client, recvbuf, rcnt, 0 );
+            if (rcnt < 0) {
+                printf("Send failed:\n");
+                close(client);
+                break;
+            }
+            printf("Bytes sent: %d\n", rcnt);
+
+        }
+        }
         
         //-----------------------------
     } while (bytes_read > 0);
@@ -365,4 +404,59 @@ void trimRecvbuf(char *s){
 }
 
 
+void deleteFile(char *delF){
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(d_file);//opendir(".");
+    int bytes_r = 0, len;
+    char str[DEFAULT_BUFLEN] = {0}, lenStr[5];
+    
 
+    if (d)
+    {
+        while ((dir = readdir(d)) != NULL)
+        {
+            //printf("%s %ld\n", dir->d_name, sizeof(dir->d_name));
+            //----------------
+            //strcpy(str, dir->d_name);
+            trimRecvbuf(delF);
+            printf("\ndname: %s %s %ld %ld\n", dir->d_name, delF, strlen(dir->d_name), strlen(delF));
+            if(strcmp(dir->d_name, delF) == 0){
+                //if (unlink(delF)) perror("unlink");
+                char file[500];
+                char str_sms_del[500] = {0};
+                int str_sms = 0;
+                strcpy(file, d_file);
+                strcat(file,"/");
+                strcat(file, delF);
+                printf("%s\n", file);
+
+                if (remove(file) == 0) {
+                    printf("The file is deleted successfully.");
+                    strcpy(str_sms_del, "200 File ");
+                    strcat(str_sms_del, delF);
+                    strcat(str_sms_del, " deleted.\n");
+                    str_sms = 30;
+                    if(str_sms > 0)
+                        send(client, str_sms_del, str_sms,0);
+                }else {
+                    printf("The file is not deleted.");
+                }
+                printf("we are going to delete");
+                break;
+            }
+            /*else{
+                char dname[20] = {0};
+                strcpy(dname, dir->d_name);
+                strcpy(str, "404 File ");
+                strcat(str, dname);
+                strcat(str, " is not on the server.\n");
+                bytes_r = 5;
+                send(client, str, bytes_r, 0);
+            }*/
+            
+        }
+
+        closedir(d);
+    }
+}
