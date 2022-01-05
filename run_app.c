@@ -43,11 +43,14 @@ int authenticateUSER(char *pswdFile, char u[20], char p[20]);
 void listDirectories();
 void deleteFile(char *delF);
 void trimRecvbuf(char *s);
+int fileNumLine(char *fl);
 
 char u_name[20];//stores the username
 
 int client, port_num;
+int is_authen = 0;//set to 1 when user log in with USER
 char p_file[20], d_file[20];
+//int acc = 0;//number of line in the password.txt
 
 char passwordFile[20] = "password.txt";
 
@@ -239,7 +242,7 @@ int authenticateUSER(char *pswdFile, char u[20], char p[20]){
 void* Child(void* arg)
 {   
     char line[DEFAULT_BUFLEN] = {0};
-    int bytes_read, is_authen = 0;
+    int bytes_read;
     client = *(int *)arg;
     char cmd_USER[20] = {0}, cmd_uname[20] = {0}, cmd_pswd[20] = {0}, cmd_LIST[20] = {0};
     char str_USER[70] = {0};
@@ -262,7 +265,7 @@ void* Child(void* arg)
     do
     {
         bytes_read = recv(client, line, sizeof(line), 0);//Reads USER username userpassword
-        if (bytes_read > 0) {
+        if (bytes_read > 0 && is_authen == 0) {
             
             strcpy(cmd_USER, strtok(line, " "));
             strcpy(cmd_uname, strtok(NULL, " "));
@@ -316,7 +319,8 @@ void* Child(void* arg)
         
         //-------------------------
         rcnt = recv(client, recvbuf, recvbuflen, 0);
-        printf("Is authen %d\n", is_authen);
+        
+        //bytes_read = rcnt;
         if(is_authen == 1 && recvbuf[0] == 'L'){
             
             char lst[recvbuflen];
@@ -333,6 +337,7 @@ void* Child(void* arg)
            //printf("\n%d\n", iseq);
             if (rcnt > 0 && (iseq == 1)) {//user entered LIST
                 listDirectories();
+                is_authen = 1;
                 printf("Bytes received: %d\n", rcnt);
             // Echo the buffer back to the sender
             strcat(recvbuf, "\n");
@@ -348,11 +353,11 @@ void* Child(void* arg)
         }
         
         rcnt_DEL = recv(client, recvbuf_DEL, recvbuflen_DEL, 0);
-        //printf("Where in the program am I: %s - %d\n", recvbuf_DEL, is_authen);
+        //bytes_read = rcnt_DEL;
         if(is_authen == 1 && recvbuf_DEL[0] == 'D'){
             printf("Let's delete some files");
                 
-            
+            is_authen = 1;
             //strcpy(lst,"LIST");
             strcpy(del, strtok(recvbuf_DEL, " "));
             strcpy(delStr, strtok(NULL, " "));
@@ -379,6 +384,7 @@ void* Child(void* arg)
             // Echo the buffer back to the sender
             strcat(recvbuf, "\n");
             rcnt = send( client, recvbuf, rcnt, 0 );
+            bytes_read = rcnt;
             if (rcnt < 0) {
                 printf("Send failed:\n");
                 close(client);
@@ -405,13 +411,15 @@ void trimRecvbuf(char *s){
 
 
 void deleteFile(char *delF){
+
     DIR *d;
     struct dirent *dir;
     d = opendir(d_file);//opendir(".");
     int bytes_r = 0, len;
     char str[DEFAULT_BUFLEN] = {0}, lenStr[5];
-    
+    int acc = 0;
 
+    is_authen = 1;
     if (d)
     {
         while ((dir = readdir(d)) != NULL)
@@ -436,27 +444,57 @@ void deleteFile(char *delF){
                     strcpy(str_sms_del, "200 File ");
                     strcat(str_sms_del, delF);
                     strcat(str_sms_del, " deleted.\n");
-                    str_sms = 30;
+                    str_sms = 50;
                     if(str_sms > 0)
                         send(client, str_sms_del, str_sms,0);
+                    
                 }else {
                     printf("The file is not deleted.");
+                    //
                 }
                 printf("we are going to delete");
                 break;
+            }else{
+                acc++;
+                
             }
-            /*else{
-                char dname[20] = {0};
-                strcpy(dname, dir->d_name);
-                strcpy(str, "404 File ");
-                strcat(str, dname);
-                strcat(str, " is not on the server.\n");
-                bytes_r = 5;
-                send(client, str, bytes_r, 0);
-            }*/
-            
         }
+       
+        if(acc == fileNumLine(d_file)){
+                printf("FIle not found!");
+                char dname[50] = {0};
+                char str_d[50] = {0};
+                int dname_s = 0;
+                strcpy(dname, delF);
+                trimRecvbuf(dname);
+                strcpy(str_d, "404 File ");
+                strcat(str_d, dname);
+                strcat(str_d, " is not on the server.\n");
+                
+                dname_s = 50;
+                if(dname_s > 0)
+                    send(client, str_d, dname_s, 0);
+            }
 
         closedir(d);
     }
+}
+
+int fileNumLine(char *fl){
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(d_file);//opendir(".");
+    int acc = 0;
+    
+
+    if (d)
+    {
+        while ((dir = readdir(d)) != NULL)
+        {
+            //printf("\ndname: %s %s %ld %ld\n", dir->d_name, delF, strlen(dir->d_name), strlen(delF));
+            acc++;
+        }
+    }
+    return acc;
+    
 }
