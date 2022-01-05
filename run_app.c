@@ -261,6 +261,10 @@ void* Child(void* arg)
     int recvbuflen_DEL = DEFAULT_BUFLEN;
     char del[recvbuflen];
     char delStr[recvbuflen];
+    //---------QUIT------------------
+    int rcnt_QUIT = 0; 
+    char recvbuf_QUIT[DEFAULT_BUFLEN] = {0};
+    int recvbuflen_QUIT = DEFAULT_BUFLEN;
     
     do
     {
@@ -308,10 +312,12 @@ void* Child(void* arg)
                         printf("Send failed\n");
                         break;
                 }
-        } else if (bytes_read == 0 ) {
+        }
+        else if (bytes_read == 0 ) {
                 printf("Connection closed by client\n");
                 break;
-        } else {
+        }
+        else {
                 printf("Connection has problem\n");
                 break;
         }
@@ -358,10 +364,10 @@ void* Child(void* arg)
             printf("Let's delete some files");
                 
             is_authen = 1;
-            //strcpy(lst,"LIST");
+        
             strcpy(del, strtok(recvbuf_DEL, " "));
             strcpy(delStr, strtok(NULL, " "));
-            printf("\n%s%s", del, delStr);
+            
             trimRecvbuf(recvbuf);
             
             int iseq = 0;
@@ -371,15 +377,9 @@ void* Child(void* arg)
                 deleteFile(delStr);
 
             }
-            /*for(int i = 0; i < 4; i++){
-                if(recvbuf[i] == lst[i])
-                    iseq = 1;
-                else 
-                    iseq = 0;
-            }*/
-           //printf("\n%d\n", iseq);
+            
             if (rcnt > 0 && (iseq == 1)) {//user entered LIST
-                listDirectories();
+                //listDirectories();
                 printf("Bytes received: %d\n", rcnt);
             // Echo the buffer back to the sender
             strcat(recvbuf, "\n");
@@ -396,6 +396,31 @@ void* Child(void* arg)
         }
         
         //-----------------------------
+        rcnt_QUIT = recv(client, recvbuf_QUIT, recvbuflen_QUIT, 0);
+        char q[DEFAULT_BUFLEN] = {0}, q2[200] = {0};
+        int str_sms_q = 0;
+        char qstr_sms[50] = {0};
+
+        if(is_authen == 1 && recvbuf_QUIT[0] == 'Q'){
+                
+            is_authen = 1;
+            trimRecvbuf(recvbuf_QUIT);
+            strcpy(q, strtok(recvbuf_QUIT, " "));
+            trimRecvbuf(recvbuf_QUIT);
+            
+            int iseq = 0;
+            
+            if(strcmp(q, "QUIT") == 0){
+
+                printf("\nsEE you next time\n");
+                strcpy(qstr_sms, "\nGoodbye!\n");
+                str_sms_q = 50;
+                    if(str_sms_q > 0)
+                        send(client, qstr_sms, str_sms_q,0);
+
+            }
+         
+        }
     } while (bytes_read > 0);
     close(client);
     return arg;
@@ -424,11 +449,9 @@ void deleteFile(char *delF){
     {
         while ((dir = readdir(d)) != NULL)
         {
-            //printf("%s %ld\n", dir->d_name, sizeof(dir->d_name));
-            //----------------
-            //strcpy(str, dir->d_name);
+            
             trimRecvbuf(delF);
-            printf("\ndname: %s %s %ld %ld\n", dir->d_name, delF, strlen(dir->d_name), strlen(delF));
+            
             if(strcmp(dir->d_name, delF) == 0){
                 //if (unlink(delF)) perror("unlink");
                 char file[500];
